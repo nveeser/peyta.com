@@ -117,7 +117,7 @@ class Ghost:
                 return True
 
             if self.verbose:
-                self.log("IGNORE MP4: " + inpath)
+                self.log("IGNORE MP4: " + file)
 
             return False
 
