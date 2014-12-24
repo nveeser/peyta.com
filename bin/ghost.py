@@ -8,6 +8,7 @@ import time
 import datetime
 import shutil
 import re
+import json
 
 from os.path import join
 from subprocess import Popen, PIPE, STDOUT
@@ -16,18 +17,38 @@ from contextlib import contextmanager
 UNRAR='/usr/bin/unrar'
 UNZIP='/usr/bin/unzip'
 FFMPEG='/home/nicholas/bin/ffmpeg'
+FFPROBE='/usr/bin/ffprobe'
 
-FFMPEG_ARGS= [ '-y',
-               '-c:v', 'libx264',
-               '-preset', 'slow',
-               '-crf', '21',
-               '-pix_fmt', 'yuv420p',
-               '-c:a', 'libfdk_aac',
-               '-b:a', '128k' ]
+FFMPEG_ARGS= [ 
+    '-y',
+    '-codec:v', 'libx264',
+    '-profile:v', 'high', 
+    '-preset', 'slow',
+    '-b:v', '9.8M',
+    '-crf', '21',
+    '-pix_fmt', 'yuv420p',
+    '-c:a', 'libfdk_aac',
+    '-b:a', '128k' 
+]
 
+FFPROBE_ARGS = [  
+    '-print_format', 'json',
+    '-loglevel', '0',
+    '-show_streams'
+]
+
+EXT_VIDEOS = [ 'wmv', 'mov', 'mp4', 'avi', 'flv', 'm4v', 'mpeg', 'asf' ]
 EXT_ARCHIVES = ['zip', 'rar']
-EXT_VIDEOS = [ 'wmv', 'mov', 'mp4', 'avi', 'flv', 'm4v' ]
-EXT_ALL = EXT_ARCHIVES + EXT_VIDEOS
+EXT_PICTURES = [ 'jpg', 'png', 'jpeg', 'txt' ]
+EXT_TEXT = [ 'txt', 'nfo' ]
+
+TYPE_MAP = {
+    'pics' : EXT_ARCHIVES + EXT_PICTURES + EXT_TEXT,
+    'vids' : EXT_VIDEOS,
+    'all' : EXT_ARCHIVES + EXT_PICTURES + EXT_TEXT + EXT_VIDEOS,
+}
+
+MAX_BITRATE=10.0
 
 PROGRESS_DIR=".progress"
 
@@ -55,19 +76,20 @@ def build_parser():
     p3.add_argument("source")
     p3.add_argument("dest")
     p3.add_argument("--source-base", required=False, default=None)
-    p3.add_argument("--extensions", required=False, default=None, choices=['vids', 'pics'])
+    p3.add_argument("--extensions", required=False, default='all', choices=['vids', 'pics', 'all'])
 
     p4 = sub.add_parser("bulk",
                        help='Bulk process files, moving original to the backup')
     p4.add_argument("source")
     p4.add_argument("--bulk-root", required=False, default="/m2/bag")
-    p4.add_argument("--backup-root", required=False, default="/m2/bag/.Backup")
+    p4.add_argument("--backup-root", required=False, default="/m2/backup/movies")
 
     p4 = sub.add_parser("rsort",
                        help='Sort files into directories')
     p4.add_argument("source")
 
     return parser
+
 
 
 class Ghost:
@@ -84,29 +106,6 @@ class Ghost:
             basename, _ = os.path.splitext(filepath)
             if not os.path.isdir(basename):
                 self.extract(filepath, basename)
-
-
-    def regex_sort(self, source):
-        source = os.path.abspath(source)
-        for inpath in _yield_files(source, ['jpg']):
-            basepath = os.path.dirname(inpath)
-            filename = os.path.basename(inpath)
-            m = re.match("((.*\w)_|(.*[a-zA-Z]))\d+\.\w{3}$", filename)
-            if not m:
-                self.log("SKIP: ", filename)
-                continue
-
-            dirname = m.group(2) or m.group(3)
-            outpath = os.path.join(basepath, dirname, filename)
-            self.log("MOVE: %s -> %s" % (inpath, outpath))
-
-            if self.testing:
-                continue
-
-            if not os.path.isdir(os.path.dirname(outpath)):
-                os.makedirs(os.path.dirname(outpath))
-
-            shutil.move(inpath, outpath)
 
 
     def bulk_transcode(self, source, bulk_root, backup_root):
@@ -140,7 +139,12 @@ class Ghost:
                 self.log("Error with file: %s" % e)
 
 
-    def process(self, indir, dest, base, extensions=EXT_ALL):
+    def process_dir(self, indir, dest, base, extensions):
+        for file in _yield_files(indir, extensions):
+            is_high_bitrate_mp4(file)
+                        
+        return 
+
         if base:
             if not indir.startswith(base) and not indir == base:
                 raise Exception("Source dir (%s) must be a prefix of the input dir (%s) " % (base, indir))
@@ -165,19 +169,27 @@ class Ghost:
         files = self.prefix(files)
 
         for inpath in files:
-            pfile = inpath.replace(source, progress_dir)
+            try:
+                pfile = inpath.replace(source, progress_dir)
 
-            if _extension(inpath) in EXT_VIDEOS:
-                outdir = os.path.dirname(inpath).replace(source, dest)
-                self.transcode(inpath, outdir)
+                if _extension(inpath) in EXT_VIDEOS:
+                    outdir = os.path.dirname(inpath).replace(source, dest)
+                    self.transcode(inpath, outdir)
 
-            elif _extension(inpath) in EXT_ARCHIVES:
-                basename, _ = os.path.splitext(inpath)
-                outdir = basename.replace(source, dest)
-                self.extract(inpath, outdir)
+                elif _extension(inpath) in EXT_ARCHIVES:
+                    basename, _ = os.path.splitext(inpath)
+                    outdir = basename.replace(source, dest)
+                    self.extract(inpath, outdir)
 
-            # Touch the Pfile
-            self._progress_file(pfile)
+                elif _extension(inpath) in EXT_PICTURES + EXT_TEXT:
+                    outpath = os.path.dirname(inpath).replace(source, dest)
+                    self._copyfile(inpath, outpath)
+
+                # Touch the Pfile
+                self._progress_file(pfile)
+
+            except Exception as e:
+                self.log("Error with file: %s" % e)
 
 
     def transcode(self, source, destdir):
@@ -195,6 +207,13 @@ class Ghost:
             os.makedirs(destdir)
 
         basename = os.path.basename(source)
+
+        if _extension(source) == "mp4":
+            if not is_high_bitrate_mp4(source):            
+                dest = join(destdir, basename)
+                self._copyfile(source, dest)
+                return 
+
         base, _ = os.path.splitext(basename)
         dest = join(destdir, base + ".mp4")
         args = [ FFMPEG, '-i', source ] + FFMPEG_ARGS + [ dest ]
@@ -215,16 +234,6 @@ class Ghost:
 
         if self.verbose:
             self.log("EXTRACT: %s -> %s" % (source, destdir))
-
-        basename, _ = os.path.splitext(source)
-        if os.path.isdir(basename):
-            if self.verbose:
-                self.log("MOVE EXISTING [%s] -> [%s]" % (basename, destdir))
-
-            self._make_base(destdir)
-            os.rename(basename, destdir)
-            return
-
 
         tempdest = "%s.TEMP" % destdir
         if not os.path.exists(tempdest) and not self.testing:
@@ -252,6 +261,29 @@ class Ghost:
                 if self.verbose:
                     self.log("CLEANUP: ", tempdest)
                 shutil.rmtree(tempdest, True)
+
+
+    def regex_sort(self, source):
+        source = os.path.abspath(source)
+        for inpath in _yield_files(source, ['jpg']):
+            basepath = os.path.dirname(inpath)
+            filename = os.path.basename(inpath)
+            m = re.match("((.*\w)_|(.*[a-zA-Z]))\d+\.\w{3}$", filename)
+            if not m:
+                self.log("SKIP: ", filename)
+                continue
+
+            dirname = m.group(2) or m.group(3)
+            outpath = os.path.join(basepath, dirname, filename)
+            self.log("MOVE: %s -> %s" % (inpath, outpath))
+
+            if self.testing:
+                continue
+
+            if not os.path.isdir(os.path.dirname(outpath)):
+                os.makedirs(os.path.dirname(outpath))
+
+            shutil.move(inpath, outpath)
 
 
     def log(self, *args):
@@ -303,6 +335,15 @@ class Ghost:
         return proc.returncode
 
 
+    def _copyfile(self, source, dest):
+        self._make_base(dest)
+        if self.verbose:
+            self.log("COPY: %s -> %s" % (source, dest))
+
+        if not self.testing:
+            shutil.copy2(source, dest)
+        
+
     def _backup(self, inpath, outpath):
         if self.verbose:
             self.log("BACKUP: %s -> %s" % (inpath, outpath))
@@ -327,6 +368,32 @@ class Ghost:
 
 
 
+def is_high_bitrate_mp4(source):
+    data = _probe_file(source) 
+    bitrate = None
+
+    for stream in data.get('streams', {}):
+        tag_str = "TAG(%s)" % stream['codec_tag']
+        codec = stream.get('codec_name', tag_str)
+        if codec == 'h264':
+            bitrate = int(stream.get('bit_rate', '0'))
+            bitrate = float(bitrate) / 1024 / 1024            
+            break
+
+        
+    if bitrate and bitrate > MAX_BITRATE:
+        print "H264: %0.2fMib/s %s" % (bitrate, source)
+        return True
+    return False
+
+
+def _probe_file(source):
+    args = [ FFPROBE, source ] + FFPROBE_ARGS 
+    p = subprocess.Popen(args, stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE)    
+    (out, err) = p.communicate()
+    return json.loads(unicode(out, errors='replace'))
+
+
 def _duration(s):
     hours, remainder = divmod(s, 3600)
     minutes, seconds = divmod(remainder, 60)
@@ -344,7 +411,8 @@ def _yield_files(path, extensions):
         for name in files:
             filepath = join(root, name)
             _, ext = os.path.splitext(filepath)
-            if ext[1:].lower() in extensions:
+            ext = ext[1:].lower() 
+            if ext in extensions:
                 yield filepath
 
 
@@ -381,15 +449,8 @@ if __name__ == "__main__":
         ghost.regex_sort(args.source)
 
     elif args.command == "process":
-        if args.extensions == 'vids':
-            ghost.process(args.source, args.dest, args.source_base, EXT_VIDEOS)
-
-        elif args.extensions == 'pics':
-            ghost.process(args.source, args.dest, args.source_base, EXT_ARCHIVES)
-
-        else:
-            ghost.process(args.source, args.dest, args.source_base, EXT_ALL)
-
+        ext_list = TYPE_MAP[args.extensions]
+        ghost.process_dir(args.source, args.dest, args.source_base, ext_list)
 
     else:
         print "Unknown Command: %s" % command
