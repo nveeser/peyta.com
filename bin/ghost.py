@@ -37,7 +37,7 @@ FFPROBE_ARGS = [
     '-show_streams'
 ]
 
-EXT_VIDEOS = [ 'wmv', 'mov', 'mp4', 'avi', 'flv', 'm4v', 'mpeg', 'asf' ]
+EXT_VIDEOS = [ 'wmv', 'mov', 'mp4', 'avi', 'flv', 'm4v', 'mpeg', 'asf', 'mkv' ]
 EXT_ARCHIVES = ['zip', 'rar']
 EXT_PICTURES = [ 'jpg', 'png', 'jpeg', 'txt' ]
 EXT_TEXT = [ 'txt', 'nfo' ]
@@ -82,7 +82,7 @@ def build_parser():
                        help='Bulk process files, moving original to the backup')
     p4.add_argument("source")
     p4.add_argument("--bulk-root", required=False, default="/m2/bag")
-    p4.add_argument("--backup-root", required=False, default="/m2/backup/movies")
+    p4.add_argument("--backup-root", required=False, default="/mx/backup/movies")
 
     p4 = sub.add_parser("rsort",
                        help='Sort files into directories')
@@ -91,7 +91,52 @@ def build_parser():
     return parser
 
 
+class Processor:
+    def __init__(self, source, dest, source_base):
+        self.source = source
+        self.dest = dest
+        self.source_base = Processor.make_source_base(source, source_base)
+        self.progress_dir = os.path.join(dest, PROGRESS_DIR)
 
+    @staticmethod
+    def make_source_base(source, source_base):
+        if not source_base:
+            return source
+
+        if not (source == source_base or source.startswith(source_base)):
+            raise Exception("source_base (%s) must be a prefix of the input dir (%s) " 
+                            % (source_base, source))
+        return source_base
+
+
+class TorrentFile:
+    def __init__(self, filename, processor):
+        self.filename = filename
+        self.p = processor
+
+    def has_pfile(self):
+        return os.path.exists(self.progress_file())
+
+    def progress_file(self):
+        return self.filename.replace(self.p.source_base, self.p.progress_dir)
+        
+    def extension(self):
+        return _extension(self.filename)
+
+    def outdir(self):
+        return os.path.dirname(self.filename).replace(self.p.source, self.p.dest)
+
+    def basename_outdir(self):
+        """ /path/source/file.zip -> /path/output/file"""
+        basename, _ = os.path.splitext(self.filename)
+        return basename.replace(self.p.source, self.p.dest)
+
+    def derived_outdir(self):
+        if self.extension() in EXT_ARCHIVES:
+            return self.basename_outdir()
+        else:
+            return self.outdir()
+        
 class Ghost:
     def __init__(self, verbose=0, testing=False):
         self.verbose = verbose
@@ -115,8 +160,7 @@ class Ghost:
             if _extension(file) != 'mp4':
                 return True
 
-            if self.verbose:
-                self.log("IGNORE MP4: " + file)
+            self.log(1, "IGNORE MP4: " + file)
 
             return False
 
@@ -136,60 +180,48 @@ class Ghost:
                 self._backup(inpath, backup)
 
             except Exception as e:
-                self.log("Error with file: %s" % e)
+                self.log(0, "Error with file: %s" % e)
 
 
-    def process_dir(self, indir, dest, base, extensions):
-        for file in _yield_files(indir, extensions):
-            is_high_bitrate_mp4(file)
-                        
-        return 
 
-        if base:
-            if not indir.startswith(base) and not indir == base:
-                raise Exception("Source dir (%s) must be a prefix of the input dir (%s) " % (base, indir))
-            source = base
-        else:
-            source = indir
+    def process_dir(self, source, dest, source_base, extensions):
+        p = Processor(source, dest, source_base)
 
-        progress_dir = os.path.join(dest, PROGRESS_DIR)
+        files = _yield_files(source, extensions)
+        files = [ TorrentFile(f, p) for f in files ]
 
-        def has_pfile(file):
-            pfile = file.replace(source, progress_dir)
-            if not os.path.exists(pfile):
+        def no_pfile(t_file):
+            if (t_file.extension() not in EXT_ARCHIVES 
+                and os.path.exists(t_file.outdir())
+                and not os.path.isdir(t_file.outdir())):
+                print "BROKEN: %s -> %s" %(t_file.filename, t_file.outdir())
+                #os.unlink(t_file.progress_file())
                 return True
 
-            if self.verbose:
-                self.log("SKIP: ", file)
+            if t_file.has_pfile():
+                self.log(1, "SKIP: ", t_file.filename)
+                return False
+            return True
 
-            return False
-
-        files = _yield_files(indir, extensions)
-        files = [ f for f in files if has_pfile(f) ]
+        files = [ f for f in files if no_pfile(f) ]
         files = self.prefix(files)
 
-        for inpath in files:
+        for t_file in files:
             try:
-                pfile = inpath.replace(source, progress_dir)
+                if t_file.extension() in EXT_VIDEOS:
+                    self.transcode(t_file.filename, t_file.outdir())
 
-                if _extension(inpath) in EXT_VIDEOS:
-                    outdir = os.path.dirname(inpath).replace(source, dest)
-                    self.transcode(inpath, outdir)
+                elif t_file.extension() in EXT_ARCHIVES:
+                    self.extract(t_file.filename, t_file.basename_outdir())
 
-                elif _extension(inpath) in EXT_ARCHIVES:
-                    basename, _ = os.path.splitext(inpath)
-                    outdir = basename.replace(source, dest)
-                    self.extract(inpath, outdir)
-
-                elif _extension(inpath) in EXT_PICTURES + EXT_TEXT:
-                    outpath = os.path.dirname(inpath).replace(source, dest)
-                    self._copyfile(inpath, outpath)
+                elif t_file.extension() in EXT_PICTURES + EXT_TEXT:
+                    self._copyfile(t_file.filename, t_file.outdir())
 
                 # Touch the Pfile
-                self._progress_file(pfile)
+                self._progress_file(t_file.progress_file())
 
             except Exception as e:
-                self.log("Error with file: %s" % e)
+                self.log(0, "Error with file: %s" % e)
 
 
     def transcode(self, source, destdir):
@@ -208,18 +240,15 @@ class Ghost:
 
         basename = os.path.basename(source)
 
-        if _extension(source) == "mp4":
-            if not is_high_bitrate_mp4(source):            
-                dest = join(destdir, basename)
-                self._copyfile(source, dest)
-                return 
+        if _extension(source) == "mp4" and not is_high_bitrate_mp4(source):            
+            self._copyfile(source, destdir)
+            return 
 
         base, _ = os.path.splitext(basename)
         dest = join(destdir, base + ".mp4")
         args = [ FFMPEG, '-i', source ] + FFMPEG_ARGS + [ dest ]
 
-        if self.verbose:
-            self.log("TRANSCODE: %s -> %s" % (source, dest))
+        self.log(1, "TRANSCODE: %s -> %s" % (source, dest))
 
         code = self._run(args)
 
@@ -229,11 +258,10 @@ class Ghost:
 
     def extract(self, source, destdir):
         if os.path.exists(destdir):
-            self.log("EXISTS: ", destdir)
+            self.log(1, "EXISTS: ", destdir)
             return
 
-        if self.verbose:
-            self.log("EXTRACT: %s -> %s" % (source, destdir))
+        self.log(1, "EXTRACT: %s -> %s" % (source, destdir))
 
         tempdest = "%s.TEMP" % destdir
         if not os.path.exists(tempdest) and not self.testing:
@@ -258,8 +286,7 @@ class Ghost:
 
         finally:
             if os.path.isdir(tempdest):
-                if self.verbose:
-                    self.log("CLEANUP: ", tempdest)
+                self.log(1, "CLEANUP: ", tempdest)
                 shutil.rmtree(tempdest, True)
 
 
@@ -270,12 +297,12 @@ class Ghost:
             filename = os.path.basename(inpath)
             m = re.match("((.*\w)_|(.*[a-zA-Z]))\d+\.\w{3}$", filename)
             if not m:
-                self.log("SKIP: ", filename)
+                self.log(1, "SKIP: ", filename)
                 continue
 
             dirname = m.group(2) or m.group(3)
             outpath = os.path.join(basepath, dirname, filename)
-            self.log("MOVE: %s -> %s" % (inpath, outpath))
+            self.log(0, "MOVE: %s -> %s" % (inpath, outpath))
 
             if self.testing:
                 continue
@@ -286,17 +313,18 @@ class Ghost:
             shutil.move(inpath, outpath)
 
 
-    def log(self, *args):
-        print self._prefix,
-        print "".join(args)
+    def log(self, level, *args):
+        if self.verbose >= level:
+            print self._prefix,
+            print "".join(args)
 
 
     def prefix(self, files):
         files = list(files)
         total = len(files)
-        for num, inpath in enumerate(files):
+        for num, f in enumerate(files):
             self._prefix = "[%d/%d] " % (num+1, total)
-            yield inpath
+            yield f
 
 
     def _make_base(self, path):
@@ -310,8 +338,7 @@ class Ghost:
 
     def _run(self, args):
         start = time.time()
-        if self.verbose > 1:
-            self.log("RUN: ", " ".join(args))
+        self.log(2, "RUN: ", " ".join(args))
 
         if self.testing:
             return 0
@@ -322,8 +349,7 @@ class Ghost:
             if line == '':
                 break
 
-            if self.verbose > 1:
-                self.log(">> ", line.rstrip())
+            self.log(2, ">> ", line.rstrip())
 
         proc.stdout.close()
         proc.wait()
@@ -335,18 +361,24 @@ class Ghost:
         return proc.returncode
 
 
-    def _copyfile(self, source, dest):
-        self._make_base(dest)
-        if self.verbose:
-            self.log("COPY: %s -> %s" % (source, dest))
+    def _copyfile(self, source, destdir):
+        self.log(1, "COPY: %s -> %s" % (source, destdir))
 
-        if not self.testing:
-            shutil.copy2(source, dest)
+        if self.testing:
+            return
+
+        if os.path.isfile(destdir):
+            self.log(0, "CLEANUP: %s" % destdir)
+            os.unlink(destdir)
+
+        if not os.path.isdir(destdir):    
+            os.makedirs(destdir)
+
+        shutil.copy2(source, destdir)
         
 
     def _backup(self, inpath, outpath):
-        if self.verbose:
-            self.log("BACKUP: %s -> %s" % (inpath, outpath))
+        self.log(1, "BACKUP: %s -> %s" % (inpath, outpath))
 
         if self.testing:
             return
