@@ -9,6 +9,7 @@ import datetime
 import shutil
 import re
 import json
+import fcntl
 
 from os.path import join
 from subprocess import Popen, PIPE, STDOUT
@@ -19,17 +20,35 @@ UNZIP='/usr/bin/unzip'
 FFMPEG='/home/nicholas/bin/ffmpeg'
 FFPROBE='/usr/bin/ffprobe'
 
-FFMPEG_ARGS= [ 
-    '-y',
-    '-codec:v', 'libx264',
-    '-profile:v', 'high', 
-    '-preset', 'slow',
-    '-b:v', '9.8M',
-    '-crf', '21',
-    '-pix_fmt', 'yuv420p',
-    '-c:a', 'libfdk_aac',
-    '-b:a', '128k' 
-]
+FFMPEG_PROFILES = { 
+    "core" :  [ 
+        '-y',
+        '-codec:v', 'libx264',
+        '-profile:v', 'high', 
+        '-preset', 'slow',
+        '-b:v', '9.8M',
+        '-crf', '21',
+        '-pix_fmt', 'yuv420p',
+        '-c:a', 'libfdk_aac',
+        '-b:a', '128k' 
+    ],
+    "ipad" : [
+        '-y',
+        '-codec:a', 'libfdk_aac',
+        '-b:a', '160k', 
+        '-ac', '2', 
+        '-strict',  'experimental',
+        '-s', 'hd1080',
+        '-codec:v', 'libx264',
+        '-b:v', '1200k', 
+        '-profile:v', 'baseline', 
+        '-preset', 'fast', 
+        '-level', '30',
+        '-maxrate', '10000000',
+        '-bufsize', '10000000', 
+        '-f', 'mp4',
+    ],
+}
 
 FFPROBE_ARGS = [  
     '-print_format', 'json',
@@ -59,30 +78,32 @@ def build_parser():
     parser.add_argument('-n', '--testing', dest='testing', action='store_true',
                         help='Set the testing flag: dont run commands')
     parser.add_argument('--verbose', '-v', action='count')
+    parser.add_argument('--lockdir', required=False, default='/tmp/ghost_locks')
+    parser.add_argument('--profile', required=False, default='core')
 
     sub = parser.add_subparsers(help='sub-command help', dest='command')
     p1 = sub.add_parser("allextract",
-                       help='extract all archives from the current directory')
+                        help='extract all archives from the current directory')
 
 
     p2 = sub.add_parser("transcode",
-                       help='transcode video file, outputting to the specififed directory')
+                        help='transcode video file, outputting to the specififed directory')
     p2.add_argument("infile")
     p2.add_argument("outdir")
 
 
     p3 = sub.add_parser("process",
-                       help='Process all files in the specfified directory')
+                        help='Process all files in the specfified directory')
     p3.add_argument("source")
     p3.add_argument("dest")
     p3.add_argument("--source-base", required=False, default=None)
     p3.add_argument("--extensions", required=False, default='all', choices=['vids', 'pics', 'all'])
 
     p4 = sub.add_parser("bulk",
-                       help='Bulk process files, moving original to the backup')
+                        help='Bulk process files, moving original to the backup')
     p4.add_argument("source")
     p4.add_argument("--bulk-root", required=False, default="/m2/bag")
-    p4.add_argument("--backup-root", required=False, default="/mx/backup/movies")
+    p4.add_argument("--backup-root", required=False, default="/scratch/backup/movies")
 
     p4 = sub.add_parser("rsort",
                        help='Sort files into directories')
@@ -136,11 +157,18 @@ class TorrentFile:
             return self.basename_outdir()
         else:
             return self.outdir()
+    
+    def __repr__(self):
+        return ("Filename: %s\n Source:%s\n Dest:%s\n SourceBase:%s" % 
+                (self.filename, self.p.source, self.p.dest, self.p.source_base))
+
+
         
 class Ghost:
-    def __init__(self, verbose=0, testing=False):
+    def __init__(self, profile, verbose=0, testing=False):
         self.verbose = verbose
         self.testing = testing
+        self.profile = profile
         self._prefix = ""
 
     def allextract(self):
@@ -246,12 +274,12 @@ class Ghost:
 
         base, _ = os.path.splitext(basename)
         dest = join(destdir, base + ".mp4")
-        args = [ FFMPEG, '-i', source ] + FFMPEG_ARGS + [ dest ]
+        args = [ FFMPEG, '-i', source ] + FFMPEG_PROFILES[self.profile] + [ dest ]
 
         self.log(1, "TRANSCODE: %s -> %s" % (source, dest))
 
         code = self._run(args)
-
+        
         if code != 0:
             raise Exception("Non-zero return code (%d) for %s" % (code, " ".join(args)))
 
@@ -356,7 +384,7 @@ class Ghost:
 
         if self.verbose:
             elapsed = datetime.timedelta(0, time.time() - start)
-            self.log("Duration: ", str(elapsed))
+            self.log(2, "DURATION: ", str(elapsed))
 
         return proc.returncode
 
@@ -449,16 +477,22 @@ def _yield_files(path, extensions):
 
 
 @contextmanager
-def file_lock(lock_file):
-    if os.path.exists(lock_file):
-        sys.exit(0)
-    else:
-        try:
-            f = open(lock_file, 'w').write("1")
-            fcntl.lockf(f, fcntl.LOCK_EX | fcntl.LOCK_NB)
-            yield
-        finally:
-            os.remove(lock_file)
+def file_locks(lock_files):
+    for lock in lock_files:
+        if os.path.exists(lock):
+            sys.exit(0)
+ 
+    try:
+        for lock in lock_files:
+            f = open(lock, 'w')
+            fcntl.lockf(f.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
+            
+        yield
+
+    finally:
+        for lock in lock_files:
+            if os.path.exists(lock):
+                os.remove(lock)
 
 
 
@@ -466,7 +500,7 @@ if __name__ == "__main__":
     parser = build_parser()
     args = parser.parse_args(sys.argv[1:])
 
-    ghost = Ghost(verbose=args.verbose, testing=args.testing)
+    ghost = Ghost(args.profile, verbose=args.verbose, testing=args.testing)
 
     if args.command == "allextract":
         ghost.allextract()
@@ -482,7 +516,9 @@ if __name__ == "__main__":
 
     elif args.command == "process":
         ext_list = TYPE_MAP[args.extensions]
-        ghost.process_dir(args.source, args.dest, args.source_base, ext_list)
+        locks = [ os.path.join(args.lockdir, ext) for ext in ext_list ]
+        with file_locks(locks):
+            ghost.process_dir(args.source, args.dest, args.source_base, ext_list)
 
     else:
         print "Unknown Command: %s" % command
