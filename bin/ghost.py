@@ -41,9 +41,10 @@ FFMPEG_PROFILES = {
         '-s', 'hd1080',
         '-codec:v', 'libx264',
         '-b:v', '1200k', 
-        '-profile:v', 'baseline', 
-        '-preset', 'fast', 
-        '-level', '30',
+        '-profile:v', 'high',
+        '-level', '4.2',
+        '-preset', 'slow',
+        '-pix_fmt', 'yuv420p',
         '-maxrate', '10000000',
         '-bufsize', '10000000', 
         '-f', 'mp4',
@@ -515,6 +516,8 @@ if __name__ == "__main__":
         ghost.regex_sort(args.source)
 
     elif args.command == "process":
+	if not os.path.isdir(args.lockdir):
+	  os.makedirs(args.lockdir)
         ext_list = TYPE_MAP[args.extensions]
         locks = [ os.path.join(args.lockdir, ext) for ext in ext_list ]
         with file_locks(locks):
