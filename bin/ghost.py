@@ -49,6 +49,23 @@ FFMPEG_PROFILES = {
         '-bufsize', '10000000', 
         '-f', 'mp4',
     ],
+    "roku" : [
+        '-y',
+        '-aspect', '16:9',
+        '-vf', 'yadif=0:1',
+        '-codec:v', 'libx264',
+        '-bufsize', '2000k',
+        '-profile:v', 'high',
+        '-level', '4.0',
+        '-s', '720x480',
+        '-b:v', '1000k',
+        '-codec:a', 'libfdk_aac',
+        '-b:a', '128k',
+        '-vpre', 'roku',
+        '-r', '29.97',
+        '-adrift_threshold', '0.01',
+    ],        
+        
 }
 
 FFPROBE_ARGS = [  
@@ -115,8 +132,10 @@ def build_parser():
 
 class Processor:
     def __init__(self, source, dest, source_base):
-        self.source = source
-        self.dest = dest
+        self.source = os.path.normpath(source)
+        self.dest = os.path.normpath(dest)
+        if source_base:
+            source_base = os.path.normpath(source_base)
         self.source_base = Processor.make_source_base(source, source_base)
         self.progress_dir = os.path.join(dest, PROGRESS_DIR)
 
@@ -174,7 +193,7 @@ class Ghost:
 
     def allextract(self):
         cwd = os.getcwd()
-        archives = _yield_files(cwd, ARCHIVES)
+        archives = _yield_files_by_ext(cwd, ARCHIVES)
 
         for filepath in archives:
             basename, _ = os.path.splitext(filepath)
@@ -193,7 +212,7 @@ class Ghost:
 
             return False
 
-        files = _yield_files(source, EXT_VIDEOS)
+        files = _yield_files_by_ext(source, EXT_VIDEOS)
         files = [ f for f in files if not_mp4(f) ]
         files = self.prefix(files)
 
@@ -216,10 +235,12 @@ class Ghost:
     def process_dir(self, source, dest, source_base, extensions):
         p = Processor(source, dest, source_base)
 
-        files = _yield_files(source, extensions)
+        files = _yield_files_by_ext(source, extensions)
         files = [ TorrentFile(f, p) for f in files ]
+        files = sorted(files, key=lambda t: t.filename)
 
-        def no_pfile(t_file):
+
+        def tfile_filter(t_file):
             if (t_file.extension() not in EXT_ARCHIVES 
                 and os.path.exists(t_file.outdir())
                 and not os.path.isdir(t_file.outdir())):
@@ -232,7 +253,7 @@ class Ghost:
                 return False
             return True
 
-        files = [ f for f in files if no_pfile(f) ]
+        files = [ f for f in files if tfile_filter(f) ]
         files = self.prefix(files)
 
         for t_file in files:
@@ -321,7 +342,7 @@ class Ghost:
 
     def regex_sort(self, source):
         source = os.path.abspath(source)
-        for inpath in _yield_files(source, ['jpg']):
+        for inpath in _yield_files_by_ext(source, ['jpg']):
             basepath = os.path.dirname(inpath)
             filename = os.path.basename(inpath)
             m = re.match("((.*\w)_|(.*[a-zA-Z]))\d+\.\w{3}$", filename)
@@ -467,7 +488,7 @@ def _extension(filepath):
     return ext[1:].lower()
 
 
-def _yield_files(path, extensions):
+def _yield_files_by_ext(path, extensions):
     for root, _, files in os.walk(path):
         for name in files:
             filepath = join(root, name)
