@@ -15,7 +15,7 @@ from os.path import join
 from subprocess import Popen, PIPE, STDOUT
 from contextlib import contextmanager
 
-UNRAR='/usr/bin/unrar'
+UNRAR='/usr/bin/urar'
 UNZIP='/usr/bin/unzip'
 FFMPEG='/home/nicholas/bin/ffmpeg'
 FFPROBE='/usr/bin/ffprobe'
@@ -323,7 +323,7 @@ class Ghost:
                 args = [UNZIP, '-o', '-j', '-d', tempdest, source]
 
             elif ext == 'rar':
-                args = [UNRAR, 'e', '-y', source, tempdest]
+                args = [UNRAR, '-o', tempdest, source]
 
             code = self._run(args)
 
