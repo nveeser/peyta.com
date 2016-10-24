@@ -30,41 +30,41 @@ type testCase struct {
 
 func TestSort(t *testing.T) {
 	cases := []testCase{
-		// testCase{
-		// 	name:           "Sorted",
-		// 	input:          []uint64{1, 2, 3, 4, 5},
-		// 	expectedFirst:  10,
-		// 	expectedLast:   10,
-		// 	expectedMedian: 6,
-		// },
+		testCase{
+			name:           "Sorted",
+			input:          []uint64{1, 2, 3, 4, 5},
+			expectedFirst:  10,
+			expectedLast:   10,
+			expectedMedian: 6,
+		},
 		testCase{
 			name:           "FiveUnsorted",
 			input:          []uint64{2, 1, 3, 4, 5},
 			expectedFirst:  7,
-			expectedLast:   11,
-			expectedMedian: 8,
+			expectedLast:   10,
+			expectedMedian: 6,
 		},
-		// testCase{
-		// 	name:           "Reverse",
-		// 	input:          []uint64{5, 4, 3, 2, 1},
-		// 	expectedFirst:  10,
-		// 	expectedLast:   10,
-		// 	expectedMedian: 6,
-		// },
-		// testCase{
-		// 	name:           "ForumCase10",
-		// 	input:          []uint64{3, 9, 8, 4, 6, 10, 2, 5, 7, 1},
-		// 	expectedFirst:  25,
-		// 	expectedLast:   29,
-		// 	expectedMedian: 21,
-		// },
-		// testCase{
-		// 	name:           "ForumCase100",
-		// 	input:          forum100,
-		// 	expectedFirst:  615,
-		// 	expectedLast:   587,
-		// 	expectedMedian: 518,
-		// },
+		testCase{
+			name:           "Reverse",
+			input:          []uint64{10, 9, 8, 7, 6, 5, 4, 3, 2, 1},
+			expectedFirst:  10,
+			expectedLast:   10,
+			expectedMedian: 19,
+		},
+		testCase{
+			name:           "ForumCase10",
+			input:          []uint64{3, 9, 8, 4, 6, 10, 2, 5, 7, 1},
+			expectedFirst:  25,
+			expectedLast:   29,
+			expectedMedian: 21,
+		},
+		testCase{
+			name:           "ForumCase100",
+			input:          forum100,
+			expectedFirst:  615,
+			expectedLast:   587,
+			expectedMedian: 518,
+		},
 	}
 
 	for _, tc := range cases {

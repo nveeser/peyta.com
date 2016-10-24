@@ -46,24 +46,27 @@ func Median3(v []uint64) int {
 }
 
 func Sort(v []uint64, p SetupPivot) int {
-	s := sorter{p}
-	return s.sort(v, 1)
+	s := &sorter{p, 0}
+	s.sort(v, 1)
+	log.Printf("Count: %d", s.count)
+	return s.count
 }
 
 type sorter struct {
 	findPivot SetupPivot
+	count     int
 }
 
-func (s sorter) log(format string, v ...interface{}) {
-	log.Printf(format, v...)
+func (s *sorter) log(format string, v ...interface{}) {
+	//log.Printf(format, v...)
 }
 
-func (s sorter) sort(v []uint64, depth int) int {
+func (s *sorter) sort(v []uint64, depth int) {
 	f := strings.Repeat("  ", depth)
 
 	s.log("%sInput: %v", f, v)
 	if len(v) <= 1 {
-		return 0
+		return
 	}
 
 	//log.Printf("%s MedianPivot: v[%d]=%d", f, v[p], p)
@@ -71,7 +74,6 @@ func (s sorter) sort(v []uint64, depth int) int {
 
 	p := 0
 
-	count := int(0)
 	//s.log("%sPivot: %v", f, v)
 	for j := 1; j < len(v); j++ {
 		s.log("%s Compare I = %d P = %d V = %v", f, j, p, v)
@@ -85,11 +87,12 @@ func (s sorter) sort(v []uint64, depth int) int {
 		}
 	}
 	v[0], v[p] = v[p], v[0]
+
+	s.count += (len(v) - 1)
+
 	s.log("%s   Recurse V: %v", f, v)
-	count += s.sort(v[0:p], depth+1)
-	count += s.sort(v[p+1:], depth+1)
-	count += (len(v) - 1)
-	return count
+	s.sort(v[0:p], depth+1)
+	s.sort(v[p+1:len(v)], depth+1)
 }
 
 type Desc []uint64

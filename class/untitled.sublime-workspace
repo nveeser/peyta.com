@@ -20,7 +20,7 @@
 			"file": "src/qsort/qsort.go",
 			"settings":
 			{
-				"buffer_size": 1855,
+				"buffer_size": 1884,
 				"line_ending": "Unix"
 			}
 		},
@@ -28,7 +28,7 @@
 			"file": "src/qsort/qsort_test.go",
 			"settings":
 			{
-				"buffer_size": 2949,
+				"buffer_size": 2865,
 				"line_ending": "Unix"
 			}
 		}
@@ -70,11 +70,7 @@
 	},
 	"expanded_folders":
 	[
-		"/Users/nicholas/work/src",
-		"/Users/nicholas/work/src/github.com",
-		"/Users/nicholas/work/src/inversion",
-		"/Users/nicholas/work/src/project1",
-		"/Users/nicholas/work/src/qsort"
+		"/Users/nicholas/peyta.com/class/src"
 	],
 	"file_history":
 	[
@@ -181,15 +177,15 @@
 					"semi_transient": false,
 					"settings":
 					{
-						"buffer_size": 1855,
+						"buffer_size": 1884,
 						"regions":
 						{
 						},
 						"selection":
 						[
 							[
-								1540,
-								1540
+								823,
+								823
 							]
 						],
 						"settings":
@@ -199,10 +195,10 @@
 							"translate_tabs_to_spaces": false
 						},
 						"translation.x": 0.0,
-						"translation.y": 215.0,
+						"translation.y": 536.0,
 						"zoom_level": 1.0
 					},
-					"stack_index": 0,
+					"stack_index": 1,
 					"type": "text"
 				}
 			]
@@ -217,15 +213,15 @@
 					"semi_transient": false,
 					"settings":
 					{
-						"buffer_size": 2949,
+						"buffer_size": 2865,
 						"regions":
 						{
 						},
 						"selection":
 						[
 							[
-								983,
-								983
+								827,
+								670
 							]
 						],
 						"settings":
@@ -234,10 +230,10 @@
 							"translate_tabs_to_spaces": false
 						},
 						"translation.x": 0.0,
-						"translation.y": 205.0,
+						"translation.y": 151.0,
 						"zoom_level": 1.0
 					},
-					"stack_index": 1,
+					"stack_index": 0,
 					"type": "text"
 				}
 			]
@@ -271,7 +267,7 @@
 		"cols":
 		[
 			0.0,
-			0.423924180328,
+			0.490172876434,
 			1.0
 		],
 		"rows":
@@ -281,6 +277,10 @@
 		]
 	},
 	"menu_visible": true,
+	"output.9o:///Users/nicholas/peyta.com/class/src/qsort":
+	{
+		"height": 100.0
+	},
 	"output.9o:///Users/nicholas/work/src/project1":
 	{
 		"height": 217.0
@@ -343,7 +343,7 @@
 		],
 		"width": 0.0
 	},
-	"selected_group": 0,
+	"selected_group": 1,
 	"settings":
 	{
 	},
