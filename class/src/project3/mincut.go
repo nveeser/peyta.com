@@ -56,8 +56,8 @@ func main() {
 	if err != nil {
 		log.Fatal(err)
 	}
-
-	mincut := graph.MinCut(input)
+	edges := graph.MakeEdges(input)
+	mincut := graph.MinCut(len(input), edges)
 
 	log.Printf("Final: %d", len(mincut))
 	log.Printf("Graph: %d", mincut)

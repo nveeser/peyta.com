@@ -7,6 +7,56 @@ import (
 )
 
 // ----------------------------------------
+// MinCut
+// ----------------------------------------
+
+func key(left, right uint64) string {
+	if left < right {
+		return fmt.Sprintf("%d%d", left, right)
+	}
+	return fmt.Sprintf("%d%d", right, left)
+}
+
+type Row []uint64
+
+func MakeEdges(rows []Row) []*Edge {
+	var edges []*Edge
+
+	exists := make(map[string]bool)
+	for _, row := range rows {
+		a := row[0]
+		for _, b := range row[1:] {
+			k := key(a, b)
+			if _, ok := exists[k]; !ok {
+				e := &Edge{Left: a, Right: b}
+				edges = append(edges, e)
+				exists[k] = true
+			}
+		}
+	}
+	return edges
+}
+
+func MinCut(count int, edges []*Edge) []*Edge {
+	var result []*Edge
+
+	for i := 0; i < count; i++ {
+		g := New()
+		for _, e := range edges {
+			g.Add(e)
+		}
+		//g.Dump()
+		g.Contract()
+		log.Printf("[%d/%d] Size: %d", i, count, g.EdgeLen())
+
+		if result == nil || len(result) > g.EdgeLen() {
+			result = g.edgeset.edges
+		}
+	}
+	return result
+}
+
+// ----------------------------------------
 // Graph
 // ----------------------------------------
 
@@ -26,11 +76,12 @@ func (g *Graph) EdgeLen() int {
 	return g.edgeset.Len()
 }
 
-func (g *Graph) Add(a, b uint64) {
-	n1 := g.node(a)
-	n2 := g.node(b)
+func (g *Graph) Add(e *Edge) {
+	n1 := g.node(e.Left)
+	e.leftn = n1
+	n2 := g.node(e.Right)
+	e.rightn = n2
 
-	e := &Edge{n1, n2}
 	n1.edges.add(e)
 	n2.edges.add(e)
 
@@ -56,126 +107,14 @@ func (g *Graph) Dump() {
 	}
 }
 
-// ----------------------------------------
-// Edge
-// ----------------------------------------
-
-type Edge struct {
-	left, right *Node
-}
-
-func (e *Edge) String() string {
-	if e.left.id < e.right.id {
-		return fmt.Sprintf("(%d, %d)", e.left.id, e.right.id)
-	}
-	return fmt.Sprintf("(%d, %d)", e.right.id, e.left.id)
-}
-
-func (e Edge) isLoop() bool {
-	return e.left == e.right
-}
-
-func (e *Edge) update(before, after *Node) {
-	pre := e.String()
-	switch before {
-	case e.left:
-		e.left = after
-	case e.right:
-		e.right = after
-	default:
-		log.Fatalf("update(): %s does not point to node: %d", e, before.id)
-	}
-	post := e.String()
-	_ = fmt.Sprintf("   updated edge %s => %s", pre, post)
-	//log.Print(m)
-}
-
-func (e *Edge) opposite(n *Node) *Node {
-	switch n {
-	case e.left:
-		return e.right
-	case e.right:
-		return e.left
-	default:
-		log.Fatalf("opposite(): %s does not connect to node[%d]", e, n.id)
-	}
-	return nil
-}
-
-// ----------------------------------------
-// Node
-// ----------------------------------------
-
-type Node struct {
-	id    uint64
-	edges *edgeSet
-}
-
-func (n *Node) String() string {
-	return fmt.Sprintf("%d  %v", n.id, n.Peers())
-}
-
-func (n *Node) Peers() []uint64 {
-	var r []uint64
-	for _, e := range n.edges.edges {
-		peer := e.opposite(n)
-		r = append(r, peer.id)
-	}
-	return r
-}
-
-// ----------------------------------------
-// Contract
-// ----------------------------------------
-
-type Row []uint64
-
-func key(left, right uint64) string {
-	if left < right {
-		return fmt.Sprintf("%d%d", left, right)
-	}
-	return fmt.Sprintf("%d%d", right, left)
-}
-
-func MinCut(rows []Row) []*Edge {
-	var result []*Edge
-
-	for i := 0; i < len(rows); i++ {
-		g := New()
-		exists := make(map[string]bool)
-		for _, row := range rows {
-			a := row[0]
-			for _, b := range row[1:] {
-				k := key(a, b)
-				if _, ok := exists[k]; !ok {
-					g.Add(a, b)
-					exists[k] = true
-				}
-			}
-		}
-		//g.Dump()
-		g.Contract()
-		log.Printf("Size: %d", g.EdgeLen())
-
-		if result == nil || len(result) > g.EdgeLen() {
-			result = g.edgeset.edges
-		}
-	}
-	return result
-}
-
-// ----------------------------------------
-// Contract
-// ----------------------------------------
-
 func (g *Graph) Contract() {
 	for len(g.nodes) > 2 {
 		//log.Printf("------ Nodes: %d --------", len(g.nodes))
 
 		drop := g.edgeset.random()
 
-		win := drop.left
-		lose := drop.right
+		win := drop.leftn
+		lose := drop.rightn
 		//log.Printf("Contract Edge: %v %d => %d", drop, lose.id, win.id)
 
 		g.edgeset.erase(drop)
@@ -200,6 +139,54 @@ func (g *Graph) Contract() {
 	}
 
 }
+
+// ----------------------------------------
+// Edge
+// ----------------------------------------
+
+type Edge struct {
+	Left, Right   uint64
+	leftn, rightn *Node
+}
+
+func (e *Edge) String() string {
+	if e.leftn.id < e.rightn.id {
+		return fmt.Sprintf("(%d, %d)", e.leftn.id, e.rightn.id)
+	}
+	return fmt.Sprintf("(%d, %d)", e.rightn.id, e.leftn.id)
+}
+
+func (e Edge) isLoop() bool {
+	return e.leftn == e.rightn
+}
+
+func (e *Edge) update(before, after *Node) {
+	pre := e.String()
+	switch before {
+	case e.leftn:
+		e.leftn = after
+	case e.rightn:
+		e.rightn = after
+	default:
+		log.Fatalf("update(): %s does not point to node: %d", e, before.id)
+	}
+	post := e.String()
+	_ = fmt.Sprintf("   updated edge %s => %s", pre, post)
+	//log.Print(m)
+}
+
+// ----------------------------------------
+// Node
+// ----------------------------------------
+
+type Node struct {
+	id    uint64
+	edges *edgeSet
+}
+
+// ----------------------------------------
+// edgeSet
+// ----------------------------------------
 
 type edgeSet struct {
 	edges []*Edge
@@ -227,15 +214,16 @@ func (s *edgeSet) erase(e *Edge) bool {
 func (s *edgeSet) Len() int {
 	return len(s.edges)
 }
-func (s *edgeSet) Swap(i, j int) {
-	s.edges[i], s.edges[j] = s.edges[j], s.edges[i]
-}
-func (s *edgeSet) Less(i, j int) bool {
-	if s.edges[i].left.id != s.edges[j].left.id {
-		return s.edges[i].left.id < s.edges[j].left.id
-	}
-	if s.edges[i].right.id != s.edges[j].right.id {
-		return s.edges[i].right.id < s.edges[j].right.id
-	}
-	return false
-}
+
+// func (s *edgeSet) Swap(i, j int) {
+// 	s.edges[i], s.edges[j] = s.edges[j], s.edges[i]
+// }
+// func (s *edgeSet) Less(i, j int) bool {
+// 	if s.edges[i].left.id != s.edges[j].left.id {
+// 		return s.edges[i].left.id < s.edges[j].left.id
+// 	}
+// 	if s.edges[i].right.id != s.edges[j].right.id {
+// 		return s.edges[i].right.id < s.edges[j].right.id
+// 	}
+// 	return false
+// }
