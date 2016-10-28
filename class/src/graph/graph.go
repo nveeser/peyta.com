@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"log"
 	"math/rand"
+	"sort"
+	"strings"
 )
 
 // ----------------------------------------
@@ -50,18 +52,15 @@ func MakeEdges(rows []Row) []*Edge {
 
 func MinCut(edges []*Edge, count int) []*Edge {
 	var result []*Edge
-
 	for i := 0; i < count; i++ {
-		g := New()
-		for _, e := range edges {
-			g.Add(e)
-		}
-		//g.Dump()
-		edges := g.Contract()
-		log.Printf("[%d/%d] Size: %d", i, count, g.EdgeLen())
+		g := New(edges)
+		//log.Printf("g : %+v", g)
+		g.Dump()
+		min := contract(g)
+		log.Printf("[%d/%d] Size: %d  -- %v", i, count, len(min), min)
 
-		if result == nil || len(result) > len(edges) {
-			result = edges
+		if result == nil || len(result) > len(min) {
+			result = min
 		}
 	}
 	return result
@@ -71,8 +70,26 @@ func MinCut(edges []*Edge, count int) []*Edge {
 // Graph
 // ----------------------------------------
 
-func New() *Graph {
-	return &Graph{nodes: make(map[uint64]*Node)}
+func New(edges []*Edge) *Graph {
+	g := &Graph{nodes: make(map[uint64]*Node)}
+
+	get := func(id uint64) *Node {
+		if _, ok := g.nodes[id]; !ok {
+			g.nodes[id] = &Node{id: id}
+		}
+		return g.nodes[id]
+	}
+
+	for _, e := range edges {
+		n1 := get(e.Left)
+		n1.edges = append(n1.edges, e)
+
+		n2 := get(e.Right)
+		n2.edges = append(n2.edges, e)
+
+		g.edges = append(g.edges, e)
+	}
+	return g
 }
 
 type Graph struct {
@@ -84,30 +101,16 @@ func (g *Graph) EdgeLen() int {
 	return len(g.edges)
 }
 
-func (g *Graph) Add(e *Edge) {
-	get := func(id uint64) *Node {
-		if _, ok := g.nodes[id]; !ok {
-			g.nodes[id] = &Node{id: id}
-		}
-		return g.nodes[id]
-	}
-
-	n1 := get(e.Left)
-	n1.edges = append(n1.edges, e)
-
-	n2 := get(e.Right)
-	n2.edges = append(n2.edges, e)
-
-	g.edges = append(g.edges, e)
-}
-
 func (g *Graph) Dump() {
 	log.Printf("Dump Graph [%p]", g)
 	for _, n := range g.nodes {
 		log.Printf("Node[%d] %d edges", n.id, len(n.edges))
+		var links []string
 		for _, e := range n.edges {
-			log.Printf("   Edge: (%d, %d)", n.id, e)
+			links = append(links, e.String())
 		}
+		sort.Strings(links)
+		log.Printf("   Edges: %s", strings.Join(links, " "))
 	}
 }
 
@@ -129,7 +132,7 @@ type cNode struct {
 	replacedBy uint64
 }
 
-func (g *Graph) Contract() []*Edge {
+func contract(g *Graph) []*Edge {
 	c := &contractor{
 		nodes:   make(map[uint64]*cNode),
 		edgeset: &edgeSet{edges: g.edges},
@@ -141,35 +144,35 @@ func (g *Graph) Contract() []*Edge {
 		}
 	}
 
-	for i := len(g.nodes); i > 2; i-- {
+	for i := len(c.nodes); i > 2; i-- {
 		drop := c.edgeset.random()
 
 		winID := c.resolve(drop.Left)
 		loseID := c.resolve(drop.Right)
 
-		win := g.nodes[winID]
-		lose := g.nodes[loseID]
+		win := c.nodes[winID]
+		lose := c.nodes[loseID]
 
-		//log.Printf("Contract Edge: %v %d <= %d", drop, win.id, lose.id)
+		log.Printf("Contract Edge: %v %d <= %d", drop, winID, loseID)
 
 		c.edgeset.erase(drop)
-		c.nodes[lose.id].replacedBy = win.id
+		c.nodes[loseID].replacedBy = winID
 
 		var combined []*Edge
-		combined = append(win.edges, lose.edges...)
-		win.edges = nil
+		combined = append(win.combined, lose.combined...)
+		win.combined = nil
 
 		for _, e := range combined {
 			if c.resolve(e.Left) != c.resolve(e.Right) {
 				//log.Printf("[] Keep: %s", e)
-				win.edges = append(win.edges, e)
+				win.combined = append(win.combined, e)
 			} else {
 				c.edgeset.erase(e)
 				//log.Printf("[] Loop: %s", e)
 			}
 		}
 
-		log.Printf("  Deleting Node:[%d]", lose.id)
+		//log.Printf("  Deleting Node:[%d]", loseID)
 	}
 	return c.edgeset.edges
 }
