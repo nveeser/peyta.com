@@ -57,7 +57,7 @@ func main() {
 		log.Fatal(err)
 	}
 	edges := graph.MakeEdges(input)
-	mincut := graph.MinCut(len(input), edges)
+	mincut := graph.MinCut(edges, len(input))
 
 	log.Printf("Final: %d", len(mincut))
 	log.Printf("Graph: %d", mincut)

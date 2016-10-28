@@ -16,22 +16,19 @@ func TestSimple(t *testing.T) {
 	if len(g.nodes) != 5 {
 		t.Errorf("got %d nodes wanted 5", len(g.nodes))
 	}
-	if g.edgeset.Len() != 8 {
-		t.Errorf("got %d edges wanted 8", g.edgeset.Len())
+	if len(g.edges) != 8 {
+		t.Errorf("got %d edges wanted 8", len(g.edges))
 	}
 
-	g.Contract()
+	edges := g.Contract()
 
-	if len(g.nodes) != 2 {
-		t.Errorf("got %d nodes wanted 2", len(g.nodes))
-	}
-	if g.edgeset.Len() != 2 {
-		t.Errorf("got %d edges wanted 2", g.edgeset.Len())
+	if len(edges) != 2 {
+		t.Errorf("got %d edges wanted 2", len(g.edges))
 	}
 }
 
 func TestCases(t *testing.T) {
-	rows := [][]uint64{
+	rows := []Row{
 		[]uint64{1, 2, 3, 4, 7},
 		[]uint64{2, 1, 3, 4},
 		[]uint64{3, 1, 2, 4},
@@ -43,7 +40,7 @@ func TestCases(t *testing.T) {
 	}
 
 	edges := MakeEdges(rows)
-	min := MinCut(edges)
+	min := MinCut(edges, 10)
 
 	if len(min) != 2 {
 		t.Errorf("got %d wanted 2", len(min))
@@ -52,7 +49,7 @@ func TestCases(t *testing.T) {
 }
 
 func TestCases2(t *testing.T) {
-	rows := [][]uint64{
+	rows := []Row{
 		[]uint64{1, 2, 3, 4},
 		[]uint64{2, 1, 3, 4},
 		[]uint64{3, 1, 2, 4},
@@ -64,7 +61,7 @@ func TestCases2(t *testing.T) {
 	}
 
 	edges := MakeEdges(rows)
-	min := MinCut(edges)
+	min := MinCut(edges, len(rows))
 
 	if len(min) != 1 {
 		t.Errorf("got %d wanted 2", len(min))
