@@ -9,17 +9,17 @@ import (
 // ById
 // ----------------------------------------
 
-type ById []uint64
+type ByID []ID
 
-func (a ById) Len() int           { return len(a) }
-func (a ById) Swap(i, j int)      { a[i], a[j] = a[j], a[i] }
-func (a ById) Less(i, j int) bool { return a[i] < a[j] }
+func (a ByID) Len() int           { return len(a) }
+func (a ByID) Swap(i, j int)      { a[i], a[j] = a[j], a[i] }
+func (a ByID) Less(i, j int) bool { return a[i] < a[j] }
 
 // ----------------------------------------
 // Rows => Edges
 // ----------------------------------------
 
-type Row []uint64
+type Row []ID
 
 func NewEdges(rows []Row) []*Edge {
 	var edges []*Edge
@@ -43,7 +43,7 @@ func NewEdges(rows []Row) []*Edge {
 type ID uint64
 
 type Edge struct {
-	Left, Right uint64
+	Left, Right ID
 }
 
 func (e *Edge) String() string {
@@ -51,24 +51,24 @@ func (e *Edge) String() string {
 }
 
 type node struct {
-	id    uint64
+	id    ID
 	edges []*Edge
 }
 
-func TopoSort(edges []*Edge) map[uint64]int {
+func TopoSort(edges []*Edge) map[ID]int {
 	g := newIndex(edges)
 
 	current := len(g.nodes)
-	r := make(map[uint64]int)
+	r := make(map[ID]int)
 
-	visit := func(id uint64) {
-		log.Printf("  Label: %d = %d", id, current)
+	visit := func(id ID) {
+		//log.Printf("  Label: %d = %d", id, current)
 		r[id] = current
 		current--
 	}
 
 	for id, _ := range g.nodes {
-		log.Printf("Loop %d", id)
+		//log.Printf("Loop %d", id)
 		g.dfs(id, out, visit)
 	}
 
@@ -79,32 +79,55 @@ func TopoSort(edges []*Edge) map[uint64]int {
 	return r
 }
 
-func FindBFS(edges []*Edge, first uint64) []uint64 {
-	var found []uint64
-	distance := make(map[uint64]int)
+func Distance(edges []*Edge, first ID) map[ID]int {
+	distance := make(map[ID]int)
 
-	visit := func(to, from uint64) {
+	newIndex(edges).bfs(first, func(to, from ID) {
 		//log.Printf("Visit: %d (%d)", current.id, current.distance)
-		distance[to] = distance[from] + 1
-		found = append(found, to)
-	}
+		switch {
+		case to == first:
+			distance[to] = 0
+		default:
+			distance[to] = distance[from] + 1
+		}
+	})
 
-	newIndex(edges).bfs(first, visit)
+	return distance
+}
+
+func WalkBFS(edges []*Edge, first ID) []ID {
+	var found []ID
+	newIndex(edges).bfs(first, func(to, from ID) {
+		//log.Printf("Visit: %d (%d)", current.id, current.distance)
+		found = append(found, to)
+	})
 	return found
 }
 
-func DFSLoop(edges []*Edge) map[uint64]int {
-	r := make(map[uint64]int)
+func Kosaraju(edges []*Edge) map[ID]ID {
+	r := make(map[ID]ID)
 	t := 0
-	visit := func(to uint64) {
+	visit := func(id ID) {
 		t++
-		r[to] = t
+		r[ID(t)] = id
 	}
-	i := newIndex(edges)
-	for id, _ := range i.nodes {
-		i.dfs(id, out, visit)
+	index := newIndex(edges)
+	for id, _ := range index.nodes {
+		index.dfs(id, in, visit)
 	}
-	return r
+
+	index.reset()
+
+	leaders := make(map[ID]ID)
+
+	for i := t; i > 0; i-- {
+		leader := r[ID(i)]
+		log.Printf("leader: %d", leader)
+		index.dfs(leader, out, func(id ID) {
+			leaders[id] = leader
+		})
+	}
+	return leaders
 }
 
 // func (g *Graph) Dump() {

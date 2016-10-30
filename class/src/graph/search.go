@@ -3,7 +3,7 @@ package graph
 import "log"
 
 type searchIndex struct {
-	nodes map[uint64]*snode
+	nodes map[ID]*snode
 }
 
 type snode struct {
@@ -16,7 +16,7 @@ type direction bool
 const out direction = true
 const in direction = false
 
-func (n *snode) peer(e *Edge) (uint64, direction) {
+func (n *snode) peer(e *Edge) (ID, direction) {
 	switch {
 	case n.id == e.Left:
 		return e.Right, out
@@ -29,9 +29,9 @@ func (n *snode) peer(e *Edge) (uint64, direction) {
 }
 
 func newIndex(edges []*Edge) *searchIndex {
-	nodes := make(map[uint64]*snode)
+	nodes := make(map[ID]*snode)
 
-	memo := func(id uint64) *snode {
+	memo := func(id ID) *snode {
 		if _, ok := nodes[id]; !ok {
 			nodes[id] = &snode{node: &node{id: id}}
 		}
@@ -48,9 +48,9 @@ func newIndex(edges []*Edge) *searchIndex {
 	return &searchIndex{nodes}
 }
 
-type visitPair func(n, from uint64)
+type visitPair func(to, from ID)
 
-type visitNode func(id uint64)
+type visitNode func(id ID)
 
 func (i *searchIndex) reset() {
 	for _, n := range i.nodes {
@@ -58,29 +58,36 @@ func (i *searchIndex) reset() {
 	}
 }
 
-func (i *searchIndex) bfs(id uint64, visit visitPair) {
+func (i *searchIndex) bfs(start ID, visit visitPair) {
 	q := &queue{}
-	q.push(id)
+	from := make(map[ID]ID)
+
+	q.push(start)
+	i.nodes[start].seen = true
+
 	for {
 		id, ok := q.pop()
 		if !ok {
 			break
 		}
-		//log.Printf("Queue: %v", q.l)
 		n := i.nodes[id]
+
+		//log.Printf("Queue: %v", q.l)
 		for _, e := range n.edges {
 			peerID, _ := n.peer(e)
 			peer := i.nodes[peerID]
 			if !peer.seen {
-				visit(peer.id, n.id)
 				q.push(peerID)
 				peer.seen = true
+
+				from[peerID] = n.id
 			}
 		}
+		visit(id, from[id])
 	}
 }
 
-func (i *searchIndex) dfs(id uint64, d direction, visit visitNode) {
+func (i *searchIndex) dfs(id ID, d direction, visit visitNode) {
 	node := i.nodes[id]
 	if node.seen {
 		return
@@ -95,18 +102,18 @@ func (i *searchIndex) dfs(id uint64, d direction, visit visitNode) {
 }
 
 type queue struct {
-	l []uint64
+	l []ID
 }
 
-func (q *queue) push(e uint64) {
+func (q *queue) push(e ID) {
 	q.l = append(q.l, e)
 }
 
-func (q *queue) pop() (uint64, bool) {
+func (q *queue) pop() (ID, bool) {
 	if len(q.l) == 0 {
 		return 0, false
 	}
-	var n uint64
+	var n ID
 	n, q.l = q.l[0], q.l[1:]
 	return n, true
 }

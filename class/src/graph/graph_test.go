@@ -6,7 +6,7 @@ import (
 	"testing"
 )
 
-func TestFindBFS(t *testing.T) {
+func TestWalkBFS(t *testing.T) {
 	edges := []*Edge{
 		{1, 2},
 		{1, 3},
@@ -16,24 +16,61 @@ func TestFindBFS(t *testing.T) {
 	}
 
 	cases := []struct {
-		start    uint64
-		expected []uint64
+		start    ID
+		expected []ID
 	}{
-		{1, []uint64{1, 2, 3}},
-		{2, []uint64{1, 2, 3}},
-		{3, []uint64{1, 2, 3}},
-		{4, []uint64{4, 5, 6, 7}},
-		{5, []uint64{4, 5, 6, 7}},
-		{6, []uint64{4, 5, 6, 7}},
-		{7, []uint64{4, 5, 6, 7}},
+		{1, []ID{1, 2, 3}},
+		{2, []ID{1, 2, 3}},
+		{3, []ID{1, 2, 3}},
+		{4, []ID{4, 5, 6, 7}},
+		{5, []ID{4, 5, 6, 7}},
+		{6, []ID{4, 5, 6, 7}},
+		{7, []ID{4, 5, 6, 7}},
 	}
 
 	for _, tc := range cases {
-		found := FindBFS(edges, tc.start)
+		found := WalkBFS(edges, tc.start)
 
-		sort.Sort(ById(found))
+		sort.Sort(ByID(found))
 		if !reflect.DeepEqual(found, tc.expected) {
 			t.Errorf("got %v wanted %v", found, tc.expected)
+		}
+	}
+}
+
+func TestDistance(t *testing.T) {
+	edges := []*Edge{
+		{1, 2},
+		{1, 3},
+		{4, 5},
+		{4, 6},
+		{6, 7},
+	}
+
+	cases := []struct {
+		start    ID
+		expected map[ID]int
+	}{
+		{1, map[ID]int{1: 0, 2: 1, 3: 1}},
+		{2, map[ID]int{1: 1, 2: 0, 3: 2}},
+		{3, map[ID]int{1: 1, 2: 2, 3: 0}},
+		{4, map[ID]int{4: 0, 5: 1, 6: 1, 7: 2}},
+		{5, map[ID]int{4: 1, 5: 0, 6: 2, 7: 3}},
+		{6, map[ID]int{4: 1, 5: 2, 6: 0, 7: 1}},
+		{7, map[ID]int{4: 2, 5: 3, 6: 1, 7: 0}},
+	}
+
+	for _, tc := range cases {
+		t.Logf("Distance(%d)", tc.start)
+		got := Distance(edges, tc.start)
+
+		for k, v := range tc.expected {
+			if got[k] != v {
+				t.Errorf("start: %d got r[%d] = %d wanted %d", tc.start, k, got[k], v)
+			}
+		}
+		for k, v := range got {
+			t.Logf("got[%d] = %d", k, v)
 		}
 	}
 }
@@ -57,26 +94,34 @@ func TestTopoSort(t *testing.T) {
 	}
 }
 
-// func TestLoopCount(t *testing.T) {
+// func TestKosaraju(t *testing.T) {
 // 	input := []*Edge{
-// 		{9, 6},
-// 		{6, 3},
-// 		{3, 9},
-// 		{6, 8},
-// 		{8, 2},
-// 		{2, 5},
-// 		{5, 8},
-// 		{7, 9},
-// 		{7, 4},
-// 		{4, 1},
-// 		{1, 7},
+// 		{6, 9},
+// 		{3, 6},
+// 		{9, 3},
+// 		{8, 6},
+// 		{2, 8},
+// 		{5, 2},
+// 		{8, 5},
+// 		{9, 7},
+// 		{4, 7},
+// 		{1, 4},
+// 		{7, 1},
 // 	}
 
-// 	expected := map[uint64]int{
-// 		1: 7, 2: 3, 3: 1, 4: 8, 5: 2, 6: 5, 7: 9, 8: 4, 9: 6,
+// 	expected := map[ID]ID{
+// 		1: 7,
+// 		2: 8,
+// 		3: 9,
+// 		4: 7,
+// 		5: 8,
+// 		6: 9,
+// 		7: 7,
+// 		8: 8,
+// 		9: 9,
 // 	}
 
-// 	got := DFSLoop(input)
+// 	got := Kosaraju(input)
 
 // 	for k, v := range expected {
 // 		if got[k] != v {

@@ -5,16 +5,16 @@ import (
 )
 
 type contractor struct {
-	nodes map[uint64]*cNode
+	nodes map[ID]*cNode
 	edges []*Edge
 }
 
 type cNode struct {
 	combined   []*Edge
-	replacedBy uint64
+	replacedBy ID
 }
 
-func (c *contractor) resolve(from uint64) uint64 {
+func (c *contractor) resolve(from ID) ID {
 	to := c.nodes[from].replacedBy
 	if to == from {
 		return from
@@ -39,11 +39,11 @@ func (c *contractor) erase(e *Edge) bool {
 
 func index(edges []*Edge) *contractor {
 	c := &contractor{
-		nodes: make(map[uint64]*cNode),
+		nodes: make(map[ID]*cNode),
 		edges: append([]*Edge(nil), edges...),
 	}
 
-	memo := func(id uint64) *cNode {
+	memo := func(id ID) *cNode {
 		if _, ok := c.nodes[id]; !ok {
 			c.nodes[id] = &cNode{replacedBy: id}
 		}
