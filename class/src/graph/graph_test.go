@@ -1,79 +1,89 @@
 package graph
 
-import "testing"
+import (
+	"reflect"
+	"sort"
+	"testing"
+)
 
-// func TestSimple(t *testing.T) {
-// 	input := []*Edge{
-// 		&Edge{Left: 1, Right: 2},
-// 		&Edge{Left: 1, Right: 20},
-// 		&Edge{Left: 1, Right: 21},
-// 		&Edge{Left: 1, Right: 22},
-// 		&Edge{Left: 2, Right: 1},
-// 		&Edge{Left: 2, Right: 20},
-// 		&Edge{Left: 2, Right: 21},
-// 		&Edge{Left: 2, Right: 22},
-// 	}
-// 	g := New(input)
-
-// 	if len(g.nodes) != 5 {
-// 		t.Errorf("got %d nodes wanted 5", len(g.nodes))
-// 	}
-// 	if len(g.edges) != 8 {
-// 		t.Errorf("got %d edges wanted 8", len(g.edges))
-// 	}
-
-// 	minEdges := contract(g)
-
-// 	if len(g.nodes) != 5 {
-// 		t.Errorf("got %d nodes wanted 5", len(g.nodes))
-// 	}
-// 	if len(g.edges) != 8 {
-// 		t.Errorf("got %d edges wanted 8", len(g.edges))
-// 	}
-
-// 	if len(minEdges) != 2 {
-// 		t.Errorf("got %d edges wanted 2", len(minEdges))
-// 	}
-// }
-
-func TestCases(t *testing.T) {
-	rows := []Row{
-		[]uint64{1, 2, 3, 4, 7},
-		[]uint64{2, 1, 3, 4},
-		[]uint64{3, 1, 2, 4},
-		[]uint64{4, 1, 2, 3, 5},
-		[]uint64{5, 4, 6, 7, 8},
-		[]uint64{6, 5, 7, 8},
-		[]uint64{7, 1, 5, 6, 8},
-		[]uint64{8, 5, 6, 7},
+func TestFindBFS(t *testing.T) {
+	edges := []*Edge{
+		{1, 2},
+		{1, 3},
+		{4, 5},
+		{4, 6},
+		{6, 7},
 	}
 
-	edges := MakeEdges(rows)
-	min := MinCut(edges, 10)
+	cases := []struct {
+		start    uint64
+		expected []uint64
+	}{
+		{1, []uint64{1, 2, 3}},
+		{2, []uint64{1, 2, 3}},
+		{3, []uint64{1, 2, 3}},
+		{4, []uint64{4, 5, 6, 7}},
+		{5, []uint64{4, 5, 6, 7}},
+		{6, []uint64{4, 5, 6, 7}},
+		{7, []uint64{4, 5, 6, 7}},
+	}
 
-	if len(min) != 2 {
-		t.Errorf("got %d wanted 2", len(min))
-		t.Logf("min: %v", min)
+	for _, tc := range cases {
+		found := FindBFS(edges, tc.start)
+
+		sort.Sort(ById(found))
+		if !reflect.DeepEqual(found, tc.expected) {
+			t.Errorf("got %v wanted %v", found, tc.expected)
+		}
 	}
 }
 
-// func TestCases2(t *testing.T) {
-// 	rows := []Row{
-// 		[]uint64{1, 2, 3, 4},
-// 		[]uint64{2, 1, 3, 4},
-// 		[]uint64{3, 1, 2, 4},
-// 		[]uint64{4, 1, 2, 3, 5},
-// 		[]uint64{5, 4, 6, 7, 8},
-// 		[]uint64{6, 5, 7, 8},
-// 		[]uint64{7, 5, 6, 8},
-// 		[]uint64{8, 5, 6, 7},
+func TestTopoSort(t *testing.T) {
+	input := []*Edge{
+		{1, 2},
+		{2, 4},
+		{1, 3},
+		{3, 4},
+	}
+
+	r := TopoSort(input)
+	if r[1] != 1 {
+		t.Errorf("got %d wanted 1", r[1])
+		t.Logf("Map: %v", r)
+	}
+	if r[4] != 4 {
+		t.Errorf("got %d wanted 4", r[4])
+		t.Logf("Map: %v", r)
+	}
+}
+
+// func TestLoopCount(t *testing.T) {
+// 	input := []*Edge{
+// 		{9, 6},
+// 		{6, 3},
+// 		{3, 9},
+// 		{6, 8},
+// 		{8, 2},
+// 		{2, 5},
+// 		{5, 8},
+// 		{7, 9},
+// 		{7, 4},
+// 		{4, 1},
+// 		{1, 7},
 // 	}
 
-// 	edges := MakeEdges(rows)
-// 	min := MinCut(edges, len(rows))
+// 	expected := map[uint64]int{
+// 		1: 7, 2: 3, 3: 1, 4: 8, 5: 2, 6: 5, 7: 9, 8: 4, 9: 6,
+// 	}
 
-// 	if len(min) != 1 {
-// 		t.Errorf("got %d wanted 2", len(min))
-// 		t.Logf("min: %v", min)
+// 	got := DFSLoop(input)
+
+// 	for k, v := range expected {
+// 		if got[k] != v {
+// 			t.Errorf("got r[%d] = %d wanted %d", k, got[k], v)
+// 		}
+// 	}
+// 	for k, v := range got {
+// 		t.Logf("got[%d] = %d", k, v)
 // 	}
 // }
