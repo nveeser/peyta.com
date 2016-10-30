@@ -1,51 +1,22 @@
 package graph
 
-import "log"
+type edgeset []*Edge
 
 type searchIndex struct {
-	nodes map[ID]*snode
-}
-
-type snode struct {
-	*node
-	seen bool
-}
-
-type direction bool
-
-const out direction = true
-const in direction = false
-
-func (n *snode) peer(e *Edge) (ID, direction) {
-	switch {
-	case n.id == e.Left:
-		return e.Right, out
-	case n.id == e.Right:
-		return e.Left, in
-	default:
-		log.Fatalf("bfs node has edge it is not in: %d -> %s", n.id, e)
-	}
-	return 0, in
+	edgesByID map[ID]edgeset
+	seen      map[ID]bool
 }
 
 func newIndex(edges []*Edge) *searchIndex {
-	nodes := make(map[ID]*snode)
-
-	memo := func(id ID) *snode {
-		if _, ok := nodes[id]; !ok {
-			nodes[id] = &snode{node: &node{id: id}}
-		}
-		return nodes[id]
-	}
-
+	edgesByID := make(map[ID]edgeset)
 	for _, e := range edges {
-		left := memo(e.Left)
-		left.edges = append(left.edges, e)
-
-		right := memo(e.Right)
-		right.edges = append(right.edges, e)
+		edgesByID[e.Left] = append(edgesByID[e.Left], e)
+		edgesByID[e.Right] = append(edgesByID[e.Right], e)
 	}
-	return &searchIndex{nodes}
+	return &searchIndex{
+		edgesByID: edgesByID,
+		seen:      make(map[ID]bool),
+	}
 }
 
 type visitPair func(to, from ID)
@@ -53,9 +24,7 @@ type visitPair func(to, from ID)
 type visitNode func(id ID)
 
 func (i *searchIndex) reset() {
-	for _, n := range i.nodes {
-		n.seen = false
-	}
+	i.seen = make(map[ID]bool)
 }
 
 func (i *searchIndex) bfs(start ID, visit visitPair) {
@@ -63,38 +32,35 @@ func (i *searchIndex) bfs(start ID, visit visitPair) {
 	from := make(map[ID]ID)
 
 	q.push(start)
-	i.nodes[start].seen = true
+	i.seen[start] = true
 
 	for {
 		id, ok := q.pop()
 		if !ok {
 			break
 		}
-		n := i.nodes[id]
 
 		//log.Printf("Queue: %v", q.l)
-		for _, e := range n.edges {
-			peerID, _ := n.peer(e)
-			peer := i.nodes[peerID]
-			if !peer.seen {
+		for _, e := range i.edgesByID[id] {
+			peerID, _ := e.Peer(id)
+			if !i.seen[peerID] {
 				q.push(peerID)
-				peer.seen = true
+				i.seen[peerID] = true
 
-				from[peerID] = n.id
+				from[peerID] = id
 			}
 		}
 		visit(id, from[id])
 	}
 }
 
-func (i *searchIndex) dfs(id ID, d direction, visit visitNode) {
-	node := i.nodes[id]
-	if node.seen {
+func (i *searchIndex) dfs(id ID, d Direction, visit visitNode) {
+	if i.seen[id] {
 		return
 	}
-	node.seen = true
-	for _, e := range node.edges {
-		if id, dir := node.peer(e); dir == d {
+	i.seen[id] = true
+	for _, e := range i.edgesByID[id] {
+		if id, dir := e.Peer(id); dir == d {
 			i.dfs(id, d, visit)
 		}
 	}

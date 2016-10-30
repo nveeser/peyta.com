@@ -5,11 +5,11 @@ import (
 )
 
 type contractor struct {
-	nodes map[ID]*cNode
+	nodes map[ID]*cnode
 	edges []*Edge
 }
 
-type cNode struct {
+type cnode struct {
 	combined   []*Edge
 	replacedBy ID
 }
@@ -37,15 +37,15 @@ func (c *contractor) erase(e *Edge) bool {
 	return false
 }
 
-func index(edges []*Edge) *contractor {
+func newContractor(edges []*Edge) *contractor {
 	c := &contractor{
-		nodes: make(map[ID]*cNode),
+		nodes: make(map[ID]*cnode),
 		edges: append([]*Edge(nil), edges...),
 	}
 
-	memo := func(id ID) *cNode {
+	memo := func(id ID) *cnode {
 		if _, ok := c.nodes[id]; !ok {
-			c.nodes[id] = &cNode{replacedBy: id}
+			c.nodes[id] = &cnode{replacedBy: id}
 		}
 		return c.nodes[id]
 	}
@@ -61,7 +61,7 @@ func index(edges []*Edge) *contractor {
 }
 
 func contract(edges []*Edge) []*Edge {
-	c := index(edges)
+	c := newContractor(edges)
 
 	for i := len(c.nodes); i > 2; i-- {
 		drop := c.random()

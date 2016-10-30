@@ -3,7 +3,7 @@ package graph
 import "testing"
 
 func TestMinCut1(t *testing.T) {
-	rows := []Row{
+	rows := []VertexRow{
 		[]ID{1, 2, 3, 4, 7},
 		[]ID{2, 1, 3, 4},
 		[]ID{3, 1, 2, 4},
@@ -24,7 +24,7 @@ func TestMinCut1(t *testing.T) {
 }
 
 func TestMinCut2(t *testing.T) {
-	rows := []Row{
+	rows := []VertexRow{
 		[]ID{1, 2, 3, 4},
 		[]ID{2, 1, 3, 4},
 		[]ID{3, 1, 2, 4},

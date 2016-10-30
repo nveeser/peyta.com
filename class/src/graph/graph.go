@@ -6,22 +6,65 @@ import (
 )
 
 // ----------------------------------------
-// ById
+// Edge
 // ----------------------------------------
 
-type ByID []ID
+type ID uint64
 
-func (a ByID) Len() int           { return len(a) }
-func (a ByID) Swap(i, j int)      { a[i], a[j] = a[j], a[i] }
-func (a ByID) Less(i, j int) bool { return a[i] < a[j] }
+type Edge struct {
+	Left, Right ID
+}
+
+func (e *Edge) String() string {
+	return fmt.Sprintf("(%d, %d)", e.Left, e.Right)
+}
+
+func (e *Edge) Peer(id ID) (ID, Direction) {
+	switch {
+	case id == e.Left:
+		return e.Right, right
+	case id == e.Right:
+		return e.Left, left
+	default:
+		log.Fatalf("id %d not on edge: %s", id, e)
+	}
+	return 0, right
+}
+
+// ----------------------------------------
+// Edge
+// ----------------------------------------
+
+type Direction bool
+
+const right Direction = true
+const left Direction = false
+
+func (d Direction) String() string {
+	if d == right {
+		return "right"
+	}
+	return "left"
+}
+
+// ----------------------------------------
+// Ascending
+// ----------------------------------------
+
+// Ascending is for sorting a slice of IDs ascending.
+type Ascending []ID
+
+func (a Ascending) Len() int           { return len(a) }
+func (a Ascending) Swap(i, j int)      { a[i], a[j] = a[j], a[i] }
+func (a Ascending) Less(i, j int) bool { return a[i] < a[j] }
 
 // ----------------------------------------
 // Rows => Edges
 // ----------------------------------------
 
-type Row []ID
+type VertexRow []ID
 
-func NewEdges(rows []Row) []*Edge {
+func NewEdges(rows []VertexRow) []*Edge {
 	var edges []*Edge
 
 	for _, row := range rows {
@@ -37,28 +80,13 @@ func NewEdges(rows []Row) []*Edge {
 }
 
 // ----------------------------------------
-// Edge
+// Functions
 // ----------------------------------------
-
-type ID uint64
-
-type Edge struct {
-	Left, Right ID
-}
-
-func (e *Edge) String() string {
-	return fmt.Sprintf("(%d, %d)", e.Left, e.Right)
-}
-
-type node struct {
-	id    ID
-	edges []*Edge
-}
 
 func TopoSort(edges []*Edge) map[ID]int {
 	g := newIndex(edges)
 
-	current := len(g.nodes)
+	current := len(g.edgesByID)
 	r := make(map[ID]int)
 
 	visit := func(id ID) {
@@ -67,9 +95,9 @@ func TopoSort(edges []*Edge) map[ID]int {
 		current--
 	}
 
-	for id, _ := range g.nodes {
+	for id, _ := range g.edgesByID {
 		//log.Printf("Loop %d", id)
-		g.dfs(id, out, visit)
+		g.dfs(id, right, visit)
 	}
 
 	if current < 0 {
@@ -104,7 +132,9 @@ func WalkBFS(edges []*Edge, first ID) []ID {
 	return found
 }
 
-func Kosaraju(edges []*Edge) map[ID]ID {
+type Group []ID
+
+func Kosaraju(edges []*Edge) []Group {
 	r := make(map[ID]ID)
 	t := 0
 	visit := func(id ID) {
@@ -112,22 +142,30 @@ func Kosaraju(edges []*Edge) map[ID]ID {
 		r[ID(t)] = id
 	}
 	index := newIndex(edges)
-	for id, _ := range index.nodes {
-		index.dfs(id, in, visit)
+	for id, _ := range index.edgesByID {
+		index.dfs(id, left, visit)
 	}
 
 	index.reset()
 
 	leaders := make(map[ID]ID)
+	group := make(map[ID]Group)
 
 	for i := t; i > 0; i-- {
 		leader := r[ID(i)]
-		log.Printf("leader: %d", leader)
-		index.dfs(leader, out, func(id ID) {
+		//log.Printf("leader: %d", leader)
+		index.dfs(leader, right, func(id ID) {
 			leaders[id] = leader
+			g := group[leader]
+			group[leader] = append(g, id)
 		})
 	}
-	return leaders
+
+	var result []Group
+	for _, g := range group {
+		result = append(result, g)
+	}
+	return result
 }
 
 // func (g *Graph) Dump() {

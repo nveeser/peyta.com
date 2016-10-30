@@ -31,7 +31,7 @@ func TestWalkBFS(t *testing.T) {
 	for _, tc := range cases {
 		found := WalkBFS(edges, tc.start)
 
-		sort.Sort(ByID(found))
+		sort.Sort(Ascending(found))
 		if !reflect.DeepEqual(found, tc.expected) {
 			t.Errorf("got %v wanted %v", found, tc.expected)
 		}
@@ -94,41 +94,55 @@ func TestTopoSort(t *testing.T) {
 	}
 }
 
-// func TestKosaraju(t *testing.T) {
-// 	input := []*Edge{
-// 		{6, 9},
-// 		{3, 6},
-// 		{9, 3},
-// 		{8, 6},
-// 		{2, 8},
-// 		{5, 2},
-// 		{8, 5},
-// 		{9, 7},
-// 		{4, 7},
-// 		{1, 4},
-// 		{7, 1},
-// 	}
+type GroupBySize []Group
 
-// 	expected := map[ID]ID{
-// 		1: 7,
-// 		2: 8,
-// 		3: 9,
-// 		4: 7,
-// 		5: 8,
-// 		6: 9,
-// 		7: 7,
-// 		8: 8,
-// 		9: 9,
-// 	}
+func (a GroupBySize) Len() int      { return len(a) }
+func (a GroupBySize) Swap(i, j int) { a[i], a[j] = a[j], a[i] }
+func (a GroupBySize) Less(i, j int) bool {
+	switch {
+	case len(a[i]) != len(a[j]):
+		return len(a[i]) < len(a[j])
+	default:
+		return a[i][0] < a[j][0]
+	}
+}
 
-// 	got := Kosaraju(input)
+func TestKosaraju(t *testing.T) {
+	input := []*Edge{
+		{6, 9},
+		{3, 6},
+		{9, 3},
+		{8, 6},
+		{2, 8},
+		{5, 2},
+		{8, 5},
+		{9, 7},
+		{4, 7},
+		{1, 4},
+		{7, 1},
+	}
 
-// 	for k, v := range expected {
-// 		if got[k] != v {
-// 			t.Errorf("got r[%d] = %d wanted %d", k, got[k], v)
-// 		}
-// 	}
-// 	for k, v := range got {
-// 		t.Logf("got[%d] = %d", k, v)
-// 	}
-// }
+	expected := []Group{
+		{1, 4, 7},
+		{2, 5, 8},
+		{3, 6, 9},
+	}
+
+	got := Kosaraju(input)
+	for _, group := range got {
+		sort.Sort(Ascending(group))
+	}
+	sort.Sort(GroupBySize(got))
+
+	for k, v := range got {
+		t.Logf("got[%d] = %d", k, v)
+	}
+
+	for i := range expected {
+		sort.Sort(Ascending(got[i]))
+
+		if !reflect.DeepEqual(got[i], expected[i]) {
+			t.Errorf("[%d] got %v wanted %v", i, got[i], expected[i])
+		}
+	}
+}
