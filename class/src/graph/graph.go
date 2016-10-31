@@ -3,6 +3,7 @@ package graph
 import (
 	"fmt"
 	"log"
+	"sort"
 )
 
 // ----------------------------------------
@@ -89,15 +90,13 @@ func TopoSort(edges []*Edge) map[ID]int {
 	current := len(g.edgesByID)
 	r := make(map[ID]int)
 
-	visit := func(id ID) {
-		//log.Printf("  Label: %d = %d", id, current)
-		r[id] = current
-		current--
-	}
-
 	for id, _ := range g.edgesByID {
 		//log.Printf("Loop %d", id)
-		g.dfs(id, right, visit)
+		g.dfs(id, right, func(id ID) {
+			//log.Printf("  Label: %d = %d", id, current)
+			r[id] = current
+			current--
+		})
 	}
 
 	if current < 0 {
@@ -133,6 +132,33 @@ func WalkBFS(edges []*Edge, first ID) []ID {
 }
 
 type Group []ID
+
+type GroupBySize []Group
+
+func (a GroupBySize) Len() int      { return len(a) }
+func (a GroupBySize) Swap(i, j int) { a[i], a[j] = a[j], a[i] }
+func (a GroupBySize) Less(i, j int) bool {
+	switch {
+	case len(a[i]) != len(a[j]):
+		return len(a[i]) > len(a[j])
+	default:
+		return a[i][0] > a[j][0]
+	}
+}
+
+func LargestGroups(groups []Group, size int) []int {
+	sort.Sort(GroupBySize(groups))
+
+	var r []int
+	for i := 0; i < 5; i++ {
+		if i >= len(groups) {
+			r = append(r, 0)
+		} else {
+			r = append(r, len(groups[i]))
+		}
+	}
+	return r
+}
 
 func Kosaraju(edges []*Edge) []Group {
 	r := make(map[ID]ID)
