@@ -9,33 +9,32 @@ import (
 	"os"
 	"strconv"
 	"strings"
+	"time"
 )
 
-type onLine func(s string)
+type onLine func(s string) error
 
-func lines(filename string, ol onLine) ([]string, error) {
-	log.Printf("Opening File: %s", name)
-	r, err := os.Open(name)
+func lines(filename string, ol onLine) error {
+	log.Printf("Opening File: %s", filename)
+	r, err := os.Open(filename)
 	if err != nil {
-		return nil, err
+		return err
 	}
 	defer r.Close()
 
 	zr, err := gzip.NewReader(r)
 	if err != nil {
-		return nil, err
+		return err
 	}
 	defer zr.Close()
 
-	var lines []string
 	scanner := bufio.NewScanner(zr)
 	for scanner.Scan() {
-		ol(scanner.Text())
+		if err := ol(scanner.Text()); err != nil {
+			return err
+		}
 	}
-	if err := scanner.Err(); err != nil {
-		return nil, err
-	}
-	return lines, nil
+	return scanner.Err()
 }
 
 func parse(line string) (*graph.Edge, error) {
@@ -57,21 +56,24 @@ func parse(line string) (*graph.Edge, error) {
 
 func main() {
 	var edges []*graph.Edge
-
-	data, err := lines("src/project4/SCC.txt.gz", func(s string) {
+	err := lines("src/project4/SCC.txt.gz", func(s string) error {
 		e, err := parse(s)
-		if err != nil {
-			log.Fatal(err)
+		if err == nil {
+			edges = append(edges, e)
 		}
-		edges = append(edges, e)
-
+		return err
 	})
+	if err != nil {
+		log.Fatal(err)
+	}
 
 	log.Printf("found edges: %d", len(edges))
 
+	start := time.Now()
 	groups := graph.Kosaraju(edges)
+	elapsed := time.Since(start)
 
-	log.Printf("found groups: %d", len(groups))
+	log.Printf("found groups: %d (Time: %s)", len(groups), elapsed)
 
 	log.Printf("Result: %v", graph.LargestGroups(groups, 5))
 }
