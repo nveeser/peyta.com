@@ -1,0 +1,15 @@
+{
+  	"settings": {
+        "GoSublime": {
+            "env": {
+            	"GOPATH": "$HOME/peyta.com/class"
+            }
+        }
+    },
+	"folders":
+	[
+		{
+			"path": "src"
+		}
+	]
+}
