@@ -1,15 +1,18 @@
 {
-  	"settings": {
-        "GoSublime": {
-            "env": {
-            	"GOPATH": "$HOME/peyta.com/class"
-            }
-        }
-    },
 	"folders":
 	[
 		{
-			"path": "src"
+			"path": "/Users/nicholas/peyta.com/class/src"
 		}
-	]
+	],
+	"settings":
+	{
+		"GoSublime":
+		{
+			"env":
+			{
+				"GOPATH": "$HOME/peyta.com/class"
+			}
+		}
+	}
 }
