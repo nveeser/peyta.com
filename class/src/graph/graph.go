@@ -85,7 +85,7 @@ func NewEdges(rows []VertexRow) []*Edge {
 // ----------------------------------------
 
 func TopoSort(edges []*Edge) map[ID]int {
-	g := newIndex(edges)
+	g := newSearchIndex(edges)
 
 	current := len(g.edgesByID)
 	r := make(map[ID]int)
@@ -109,7 +109,7 @@ func TopoSort(edges []*Edge) map[ID]int {
 func Distance(edges []*Edge, first ID) map[ID]int {
 	distance := make(map[ID]int)
 
-	newIndex(edges).bfs(first, func(to, from ID) {
+	newSearchIndex(edges).bfs(first, func(to, from ID) {
 		//log.Printf("Visit: %d (%d)", current.id, current.distance)
 		switch {
 		case to == first:
@@ -124,7 +124,7 @@ func Distance(edges []*Edge, first ID) map[ID]int {
 
 func WalkBFS(edges []*Edge, first ID) []ID {
 	var found []ID
-	newIndex(edges).bfs(first, func(to, from ID) {
+	newSearchIndex(edges).bfs(first, func(to, from ID) {
 		//log.Printf("Visit: %d (%d)", current.id, current.distance)
 		found = append(found, to)
 	})
@@ -167,7 +167,7 @@ func Kosaraju(edges []*Edge) []Group {
 		t++
 		r[ID(t)] = id
 	}
-	index := newIndex(edges)
+	index := newSearchIndex(edges)
 	for id, _ := range index.edgesByID {
 		index.dfs(id, left, visit)
 	}

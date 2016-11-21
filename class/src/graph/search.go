@@ -7,7 +7,7 @@ type searchIndex struct {
 	seen      map[ID]bool
 }
 
-func newIndex(edges []*Edge) *searchIndex {
+func newSearchIndex(edges []*Edge) *searchIndex {
 	edgesByID := make(map[ID]edgeset)
 	for _, e := range edges {
 		edgesByID[e.Left] = append(edgesByID[e.Left], e)
