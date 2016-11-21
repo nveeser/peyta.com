@@ -193,16 +193,3 @@ func Kosaraju(edges []*Edge) []Group {
 	}
 	return result
 }
-
-// func (g *Graph) Dump() {
-// 	log.Printf("Dump Graph [%p]", g)
-// 	for _, n := range g.nodes {
-// 		log.Printf("node[%d] %d edges", n.id, len(n.edges))
-// 		var links []string
-// 		for _, e := range n.edges {
-// 			links = append(links, e.String())
-// 		}
-// 		sort.Strings(links)
-// 		log.Printf("   Edges: %s", strings.Join(links, " "))
-// 	}
-// }
