@@ -29,7 +29,7 @@ FFMPEG_PROFILES = {
         '-b:v', '9.8M',
         '-crf', '21',
         '-pix_fmt', 'yuv420p',
-        '-c:a', 'libfdk_aac',
+        '-codec:a', 'libfdk_aac',
         '-b:a', '128k' 
     ],
     "ipad" : [
@@ -209,7 +209,6 @@ class Ghost:
                 return True
 
             self.log(1, "IGNORE MP4: " + file)
-
             return False
 
         files = _yield_files_by_ext(source, EXT_VIDEOS)
@@ -239,7 +238,6 @@ class Ghost:
         files = [ TorrentFile(f, p) for f in files ]
         files = sorted(files, key=lambda t: t.filename)
 
-
         def tfile_filter(t_file):
             if (t_file.extension() not in EXT_ARCHIVES 
                 and os.path.exists(t_file.outdir())
@@ -253,11 +251,13 @@ class Ghost:
                 return False
             return True
 
+        #self.log(1, "FILE: ", e)
         files = [ f for f in files if tfile_filter(f) ]
         files = self.prefix(files)
 
         for t_file in files:
             try:
+                self.log(1, "FILE: ", t_file.filename)
                 if t_file.extension() in EXT_VIDEOS:
                     self.transcode(t_file.filename, t_file.outdir())
 
@@ -290,9 +290,9 @@ class Ghost:
 
         basename = os.path.basename(source)
 
-        if _extension(source) == "mp4" and not is_high_bitrate_mp4(source):            
-            self._copyfile(source, destdir)
-            return 
+        # if _extension(source) == "mp4" and not is_high_bitrate_mp4(source):            
+        #     self._copyfile(source, destdir)
+        #     return 
 
         base, _ = os.path.splitext(basename)
         dest = join(destdir, base + ".mp4")
