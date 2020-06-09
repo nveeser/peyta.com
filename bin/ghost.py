@@ -242,7 +242,7 @@ class Ghost:
             if (t_file.extension() not in EXT_ARCHIVES 
                 and os.path.exists(t_file.outdir())
                 and not os.path.isdir(t_file.outdir())):
-                print "BROKEN: %s -> %s" %(t_file.filename, t_file.outdir())
+                #print("BROKEN: %s -> %s" % (t_file.filename, t_file.outdir()))
                 #os.unlink(t_file.progress_file())
                 return True
 
@@ -365,8 +365,8 @@ class Ghost:
 
     def log(self, level, *args):
         if self.verbose >= level:
-            print self._prefix,
-            print "".join(args)
+            print(self._prefix)
+            print("".join(args))
 
 
     def prefix(self, files):
@@ -464,7 +464,7 @@ def is_high_bitrate_mp4(source):
 
         
     if bitrate and bitrate > MAX_BITRATE:
-        print "H264: %0.2fMib/s %s" % (bitrate, source)
+        print("H264: %0.2fMib/s %s" % (bitrate, source))
         return True
     return False
 
@@ -537,13 +537,13 @@ if __name__ == "__main__":
         ghost.regex_sort(args.source)
 
     elif args.command == "process":
-	if not os.path.isdir(args.lockdir):
-	  os.makedirs(args.lockdir)
+        if not os.path.isdir(args.lockdir):
+            os.makedirs(args.lockdir)
         ext_list = TYPE_MAP[args.extensions]
         locks = [ os.path.join(args.lockdir, ext) for ext in ext_list ]
         with file_locks(locks):
             ghost.process_dir(args.source, args.dest, args.source_base, ext_list)
 
     else:
-        print "Unknown Command: %s" % command
+        print("Unknown Command: %s" % command)
         sys.exit(1)
