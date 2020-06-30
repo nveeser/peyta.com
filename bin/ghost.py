@@ -10,6 +10,7 @@ import shutil
 import re
 import json
 import fcntl
+import traceback
 
 from os.path import join
 from subprocess import Popen, PIPE, STDOUT
@@ -272,6 +273,7 @@ class Ghost:
 
             except Exception as e:
                 self.log(0, "Error with file: %s" % e)
+                traceback.print_exc()
 
 
     def transcode(self, source, destdir):
@@ -323,7 +325,7 @@ class Ghost:
                 args = [UNZIP, '-o', '-j', '-d', tempdest, source]
 
             elif ext == 'rar':
-                args = [UNRAR, '-o', tempdest, source]
+                args = ['7z', 'x', '-o', tempdest, source]
 
             code = self._run(args)
 
@@ -364,7 +366,7 @@ class Ghost:
 
 
     def log(self, level, *args):
-        if self.verbose >= level:
+        if self.verbose is not None and self.verbose >= level:
             print(self._prefix)
             print("".join(args))
 
@@ -395,7 +397,7 @@ class Ghost:
 
         proc = Popen(args, stdout=PIPE, stderr=STDOUT)
         while True:
-            line = proc.stdout.readline()
+            line = proc.stdout.readline().decode('utf-8')
             if line == '':
                 break
 
